@@ -166,9 +166,14 @@ impl State {
         (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
     }
 
-    // 最も始点が近い、未チョイスのリクエストを返す
-    fn search_nearest_req(&self, input: &Input) -> Request {
+    // 未チョイスのリクエストの内、現地点との始点の近さ、始点-終点間の距離の近さ、がいい感じのものを選ぶ
+    fn search_looks_good_req(&self, input: &Input) -> Request {
         let mut res: Option<&Request> = None;
+        fn calc(st: &State, req: &Request) -> usize {
+            // TODO: ここ変動させて全パターン試すとか
+            st.pos.distance(&req.s) + req.calc_sg_dist() / 4
+        }
+
         for req in &input.reqs {
             if !self.choiced[req.id - 1] {
                 match res {
@@ -176,8 +181,8 @@ impl State {
                         res = Some(&req);
                     }
                     Some(now) => {
-                        // now より近ければ
-                        if self.pos.distance(&req.s) < self.pos.distance(&now.s) {
+                        // now より良さそうなら
+                        if calc(&self, &req) < calc(&self, &now) {
                             res = Some(&req);
                         }
                     }
@@ -229,19 +234,18 @@ impl State {
 
         // 最も近い始点に向かう
         while self.choice.len() < SELECT_ORDER_NUM {
-            let req = self.search_nearest_req(&input);
-            // TODO: 途中で消化できるtodoは消化する
             // TODO: 始点-終点 間の距離も評価関数に入れて良さそう
+            let req = self.search_looks_good_req(&input);
+            // TODO: 途中で消化できるtodoは消化する <= 遠すぎて通り道にないのよな
             self.choose_and_move(&req);
         }
 
         // todoを処理していく
-        // TODO: ここはTSP解きたい
         let mut nodes: Vec<Coord> = self.todo.clone().into_iter().collect();
         nodes.push(office.clone());
         nodes.push(self.pos.clone());
         nodes.rotate_right(1);
-        eprintln!("{:?}", nodes);
+        // eprintln!("{:?}", nodes);
 
         let path = (0..nodes.len()).collect();
         let mut table = vec![vec![0; nodes.len()]; nodes.len()];
