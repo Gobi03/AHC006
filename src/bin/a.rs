@@ -25,7 +25,7 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
-const SG_DIST_DEV: usize = 3;
+const SG_DIST_DEV: usize = 4;
 const RECT_LIMIT: isize = 450;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -172,11 +172,11 @@ impl State {
     // 未チョイスのリクエストの内、以下基準で良さそうなものを選ぶ。
     // - 現地点との始点の近さ
     // - 始点-終点間の距離の近さ
-    fn search_looks_good_req(&self, input: &Input) -> Request {
+    fn search_looks_good_req(&self, input: &Input, sg_dist_dev: usize) -> Request {
         let mut res: Option<&Request> = None;
-        fn calc(st: &State, req: &Request) -> usize {
+        fn calc(st: &State, req: &Request, sg_dist_dev: usize) -> usize {
             // TODO: ここ変動させて全パターン試すとか
-            st.pos.distance(&req.s) + req.calc_sg_dist() / SG_DIST_DEV
+            st.pos.distance(&req.s) + req.calc_sg_dist() / sg_dist_dev
         }
 
         let hoge = RECT_LIMIT / 2;
@@ -199,7 +199,7 @@ impl State {
                     }
                     Some(now) => {
                         // now より良さそうなら
-                        if calc(&self, &req) < calc(&self, &now) {
+                        if calc(&self, &req, sg_dist_dev) < calc(&self, &now, sg_dist_dev) {
                             res = Some(&req);
                         }
                     }
@@ -257,13 +257,13 @@ impl State {
         println!();
     }
 
-    fn solve(&mut self, input: &Input, system_time: &SystemTime) {
+    fn solve(&mut self, input: &Input, system_time: &SystemTime, sg_dist_dev: usize) {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
         // 最も近い始点に向かう
         while self.choice.len() < SELECT_ORDER_NUM {
-            let req = self.search_looks_good_req(&input);
+            let req = self.search_looks_good_req(&input, sg_dist_dev);
 
             // 途中で踏めるtodoを踏む
             loop {
@@ -303,7 +303,7 @@ impl State {
         }
 
         let mut yn = Yamanobori::new(path, table, system_time.clone());
-        yn.run(1_000);
+        yn.run(system_time.elapsed().unwrap().as_millis() + 1_900 / 5);
 
         for i in 1..yn.path.len() {
             let to: Coord = nodes[yn.path[i]];
@@ -320,7 +320,7 @@ fn main() {
     let system_time = SystemTime::now();
     let mut _rng = thread_rng();
 
-    let office: Coord = Coord::new((400, 400));
+    let _office: Coord = Coord::new((400, 400));
 
     // input
     let mut reqs = Vec::with_capacity(ORDER_TOTAL);
@@ -342,13 +342,21 @@ fn main() {
     let input = Input::new(reqs);
 
     // solve
-    let mut st = State::new();
-    st.solve(&input, &system_time);
+    let mut ans_st = State::new();
+    ans_st.solve(&input, &system_time, 2);
+    for i in 3..=6 {
+        let mut st = State::new();
+        st.solve(&input, &system_time, i);
+        if st.calc_score() > ans_st.calc_score() {
+            ans_st = st;
+        }
+    }
 
-    eprintln!("score: {}", st.calc_score());
-    eprintln!("todo_len: {}", st.todo.len());
+    eprintln!("score: {}", ans_st.calc_score());
+    // eprintln!("todo_len: {}", st.todo.len());
+
     // outout
-    st.print();
+    ans_st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
