@@ -223,7 +223,7 @@ impl State {
         println!();
     }
 
-    fn solve(&mut self, input: &Input) {
+    fn solve(&mut self, input: &Input, system_time: &SystemTime) {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
@@ -231,13 +231,28 @@ impl State {
         while self.choice.len() < SELECT_ORDER_NUM {
             let req = self.search_nearest_req(&input);
             // TODO: 途中で消化できるtodoは消化する
+            // TODO: 始点-終点 間の距離も評価関数に入れて良さそう
             self.choose_and_move(&req);
         }
 
         // todoを処理していく
         // TODO: ここはTSP解きたい
-        while self.todo.len() > 0 {
-            let to: Coord = self.search_nearest_todo();
+        let nodes: Vec<Coord> = self.todo.clone().into_iter().collect();
+        let path = (0..nodes.len()).collect();
+        let mut table = vec![vec![0; nodes.len()]; nodes.len()];
+        for i in 0..nodes.len() {
+            for j in i + 1..nodes.len() {
+                let dist = nodes[i].distance(&nodes[j]);
+                table[i][j] = dist;
+                table[j][i] = dist;
+            }
+        }
+
+        let mut yn = Yamanobori::new(path, table, system_time.clone());
+        yn.run(1_000);
+
+        for i in yn.path {
+            let to: Coord = nodes[i];
             self.move_to(&to);
         }
 
@@ -274,7 +289,7 @@ fn main() {
 
     // solve
     let mut st = State::new();
-    st.solve(&input);
+    st.solve(&input, &system_time);
 
     eprintln!("score: {}", st.calc_score());
     eprintln!("todo_len: {}", st.todo.len());
@@ -282,4 +297,86 @@ fn main() {
     st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
+}
+
+#[allow(dead_code)]
+struct Yamanobori {
+    path: Vec<usize>,
+    score: usize,
+    table: Vec<Vec<usize>>, // 二点間の距離
+    main_start_time: SystemTime,
+}
+#[allow(dead_code)]
+impl Yamanobori {
+    fn new(
+        start_path: Vec<usize>,
+        table: Vec<Vec<usize>>,
+        main_start_time: SystemTime,
+    ) -> Yamanobori {
+        let mut score = 0;
+        let path_length = start_path.len();
+
+        // 初期スコアの作成
+        for i in 0..path_length - 1 {
+            score += table[start_path[i]][start_path[i + 1]];
+        }
+
+        Yamanobori {
+            path: start_path,
+            score,
+            table,
+            main_start_time,
+        }
+    }
+
+    // [li, ri] を反転
+    fn range_reverse(&mut self, li: usize, ri: usize) {
+        let diff = (ri - li) + 1;
+        for i in 0..diff / 2 {
+            self.path.swap(li + i, ri - i);
+        }
+    }
+
+    fn access_table_by_path_id(&self, i1: usize, i2: usize) -> usize {
+        self.table[self.path[i1]][self.path[i2]]
+    }
+
+    // end_time: main関数の開始後からの時間を指す
+    fn run(
+        &mut self,
+        end_time: u128, // ミリ秒表記
+    ) {
+        let mut rand = rand_pcg::Pcg64Mcg::new(890482);
+        let path_length = self.path.len();
+
+        while self.main_start_time.elapsed().unwrap().as_millis() < end_time {
+            for _ in 0..1000 {
+                // TODO: 1, -1 か
+                let mut lci = rand.gen_range(0, path_length); // left cut i
+                let mut rci = rand.gen_range(0, path_length); // right cut i
+                if lci > rci {
+                    // swap
+                    lci ^= rci;
+                    rci ^= lci;
+                    lci ^= rci;
+                }
+
+                if lci == rci || (lci == 0 || rci == path_length - 1) {
+                    continue;
+                }
+
+                let pre = self.access_table_by_path_id(lci - 1, lci)
+                    + self.access_table_by_path_id(rci, rci + 1);
+                let next = self.access_table_by_path_id(lci - 1, rci)
+                    + self.access_table_by_path_id(lci, rci + 1);
+
+                if next < pre {
+                    self.score += next;
+                    self.score -= pre;
+
+                    self.range_reverse(lci, rci);
+                }
+            }
+        }
+    }
 }
