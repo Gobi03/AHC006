@@ -256,7 +256,7 @@ impl State {
         println!();
     }
 
-    fn solve(&mut self, input: &Input, system_time: &SystemTime, sg_dist_dev: usize) {
+    fn solve(&mut self, input: &Input, sg_dist_dev: usize) {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
@@ -291,8 +291,8 @@ impl State {
                         table[j][i] = dist;
                     }
                 }
-                let mut yn = Yamanobori::new(path, table, system_time.clone());
-                yn.run(50);
+                let mut yn = Yamanobori::new(path, table);
+                yn.run(7);
 
                 for i in 1..yn.path.len() - 1 {
                     self.move_to(&nodes[yn.path[i]]);
@@ -320,7 +320,7 @@ impl State {
         }
 
         let mut yn = Yamanobori::new(path, table);
-        yn.run(1_900 / 5);
+        yn.run(1_800 / 5);
 
         for i in 1..yn.path.len() {
             let to: Coord = nodes[yn.path[i]];
@@ -360,10 +360,10 @@ fn main() {
 
     // solve
     let mut ans_st = State::new();
-    ans_st.solve(&input, &system_time, 2);
+    ans_st.solve(&input, 2);
     for i in 3..=6 {
         let mut st = State::new();
-        st.solve(&input, &system_time, i);
+        st.solve(&input, i);
         if st.calc_score() > ans_st.calc_score() {
             ans_st = st;
         }
