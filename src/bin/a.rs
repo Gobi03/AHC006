@@ -174,11 +174,11 @@ impl State {
     // 未チョイスのリクエストの内、以下基準で良さそうなものを選ぶ。
     // - 現地点との始点の近さ
     // - 始点-終点間の距離の近さ
-    fn search_looks_good_req(&self, input: &Input) -> Request {
+    fn search_looks_good_req(&self, input: &Input, sg_dist_dev: usize) -> Request {
         let mut res: Option<&Request> = None;
-        fn calc(st: &State, req: &Request) -> usize {
+        fn calc(st: &State, req: &Request, sg_dist_dev: usize) -> usize {
             // TODO: ここ変動させて全パターン試すとか
-            st.pos.distance(&req.s) + req.calc_sg_dist() / SG_DIST_DEV
+            st.pos.distance(&req.s) + req.calc_sg_dist() / sg_dist_dev
         }
 
         let hoge = RECT_LIMIT / 2;
@@ -201,7 +201,7 @@ impl State {
                     }
                     Some(now) => {
                         // now より良さそうなら
-                        if calc(&self, &req) < calc(&self, &now) {
+                        if calc(&self, &req, sg_dist_dev) < calc(&self, &now, sg_dist_dev) {
                             res = Some(&req);
                         }
                     }
@@ -256,13 +256,13 @@ impl State {
         println!();
     }
 
-    fn solve(&mut self, input: &Input, system_time: &SystemTime) {
+    fn solve(&mut self, input: &Input, system_time: &SystemTime, sg_dist_dev: usize) {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
         // 最も近い始点に向かう
         while self.choice.len() < SELECT_ORDER_NUM {
-            let req = self.search_looks_good_req(&input);
+            let req = self.search_looks_good_req(&input, sg_dist_dev);
 
             // 途中で踏めるtodoを踏む
             let rect = Rectangle::new(
@@ -319,8 +319,8 @@ impl State {
             }
         }
 
-        let mut yn = Yamanobori::new(path, table, system_time.clone());
-        yn.run(1_000);
+        let mut yn = Yamanobori::new(path, table);
+        yn.run(1_900 / 5);
 
         for i in 1..yn.path.len() {
             let to: Coord = nodes[yn.path[i]];
@@ -337,7 +337,7 @@ fn main() {
     let system_time = SystemTime::now();
     let mut _rng = thread_rng();
 
-    let office: Coord = Coord::new((400, 400));
+    let _office: Coord = Coord::new((400, 400));
 
     // input
     let mut reqs = Vec::with_capacity(ORDER_TOTAL);
@@ -359,31 +359,34 @@ fn main() {
     let input = Input::new(reqs);
 
     // solve
-    let mut st = State::new();
-    st.solve(&input, &system_time);
+    let mut ans_st = State::new();
+    ans_st.solve(&input, &system_time, 2);
+    for i in 3..=6 {
+        let mut st = State::new();
+        st.solve(&input, &system_time, i);
+        if st.calc_score() > ans_st.calc_score() {
+            ans_st = st;
+        }
+    }
 
-    eprintln!("score: {}", st.calc_score());
-    eprintln!("todo_len: {}", st.todo.len());
+    eprintln!("score: {}", ans_st.calc_score());
+    // eprintln!("todo_len: {}", st.todo.len());
+
     // outout
-    st.print();
+    ans_st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
 
 #[allow(dead_code)]
 struct Yamanobori {
-    path: Vec<usize>,
+    path: Vec<usize>, // ノード番号が入る。ノード番号は、tableのindexとも対応する。
     score: usize,
-    table: Vec<Vec<usize>>, // 二点間の距離
-    main_start_time: SystemTime,
+    table: Vec<Vec<usize>>, // [aノード番号][bノード番号] := a-b 間の距離
 }
 #[allow(dead_code)]
 impl Yamanobori {
-    fn new(
-        start_path: Vec<usize>,
-        table: Vec<Vec<usize>>,
-        main_start_time: SystemTime,
-    ) -> Yamanobori {
+    fn new(start_path: Vec<usize>, table: Vec<Vec<usize>>) -> Yamanobori {
         let mut score = 0;
         let path_length = start_path.len();
 
@@ -396,7 +399,6 @@ impl Yamanobori {
             path: start_path,
             score,
             table,
-            main_start_time,
         }
     }
 
@@ -413,14 +415,18 @@ impl Yamanobori {
     }
 
     // end_time: main関数の開始後からの時間を指す
+    // 始点終点は固定される
     fn run(
         &mut self,
-        end_time: u128, // ミリ秒表記
+        during_time: u128, // 焼きなまし実行時間(ミリ秒)
     ) {
+        let system_time = SystemTime::now();
+        let start_time = system_time.elapsed().unwrap().as_millis();
+
         let mut rand = rand_pcg::Pcg64Mcg::new(890482);
         let path_length = self.path.len();
 
-        while self.main_start_time.elapsed().unwrap().as_millis() < end_time {
+        while system_time.elapsed().unwrap().as_millis() - start_time < during_time {
             for _ in 0..1000 {
                 let mut lci = rand.gen_range(0, path_length); // left cut i
                 let mut rci = rand.gen_range(0, path_length); // right cut i
