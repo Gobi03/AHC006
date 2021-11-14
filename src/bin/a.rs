@@ -25,7 +25,7 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
-const SG_DIST_DEV: usize = 4;
+const SG_DIST_DEV: usize = 3;
 const RECT_LIMIT: isize = 450;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -190,7 +190,7 @@ impl State {
                     && (400 - hoge <= req.g.y && req.g.y <= 400 + hoge)
             })
             .collect();
-        eprintln!("under_hoge len: {}", under_hoge.len());
+        // eprintln!("under_hoge len: {}", under_hoge.len());
         for req in &under_hoge {
             if !self.choiced[req.id - 1] {
                 match res {
@@ -211,7 +211,7 @@ impl State {
     }
 
     // 最も近いtodo座標を返す
-    fn search_nearest_todo(&self) -> Coord {
+    fn _search_nearest_todo(&self) -> Coord {
         let mut res: Option<&Coord> = None;
         for to in &self.todo {
             match res {

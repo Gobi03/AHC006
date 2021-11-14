@@ -1,9 +1,15 @@
 #!/bin/bash
 
-set -eu
+set -e
+
+if [[ $1 ]]; then
+    test_num="$1";
+else
+    test_num="0000";
+fi
 
 cargo build --release
 
 cd tools
-../../target/release/a < in/0000.txt > out/0000.txt
-cargo run --release --bin vis in/0000.txt out/0000.txt
+../../target/release/a < in/${test_num}.txt > out/${test_num}.txt
+cargo run --release --bin vis in/${test_num}.txt out/${test_num}.txt
