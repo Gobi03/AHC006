@@ -150,6 +150,11 @@ impl State {
         self.move_to(&req.s);
     }
 
+    // ここまでの移動距離でスコア算出
+    fn calc_score(&self) -> usize {
+        (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
+    }
+
     // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
@@ -195,16 +200,16 @@ fn main() {
     // solve
     let mut st = State::new();
 
-    st.route.push(office.clone());
+    st.move_to(&office);
     for i in 0..SELECT_ORDER_NUM {
         let req = &input.reqs[i];
-        st.choice.push(req.id);
-        st.route.push(req.s.clone());
-        st.route.push(req.g.clone());
+        st.choose_and_move(&req);
+        st.move_to(&req.g);
     }
-    st.route.push(office.clone());
+    st.move_to(&office);
 
     // outout
+    eprintln!("score: {}", st.calc_score());
     st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
