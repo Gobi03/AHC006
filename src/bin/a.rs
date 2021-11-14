@@ -25,6 +25,9 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
+const SG_DIST_DEV: usize = 4;
+const RECT_LIMIT: isize = 550;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Coord {
     x: isize,
@@ -173,10 +176,10 @@ impl State {
         let mut res: Option<&Request> = None;
         fn calc(st: &State, req: &Request) -> usize {
             // TODO: ここ変動させて全パターン試すとか
-            st.pos.distance(&req.s) + req.calc_sg_dist() / 4
+            st.pos.distance(&req.s) + req.calc_sg_dist() / SG_DIST_DEV
         }
 
-        let hoge = 550;
+        let hoge = RECT_LIMIT;
         let under_hoge: Vec<&Request> = input
             .reqs
             .iter()
@@ -395,5 +398,39 @@ impl Yamanobori {
                 }
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Rectangle {
+    leftup: Coord,
+    rightdown: Coord,
+}
+
+impl Rectangle {
+    fn new(leftup: Coord, rightdown: Coord) -> Self {
+        Rectangle { leftup, rightdown }
+    }
+
+    fn calc_area(&self) -> isize {
+        (self.rightdown.x - self.leftup.x) * (self.rightdown.y - self.leftup.y)
+    }
+
+    fn in_field(&self) -> bool {
+        self.leftup.x >= 0
+            && self.leftup.y >= 0
+            && self.rightdown.x < SIDE as isize
+            && self.rightdown.y < SIDE as isize
+    }
+
+    fn does_include_point(&self, point: &Coord) -> bool {
+        let &Coord { x, y } = point;
+        self.leftup.x <= x && x <= self.rightdown.x && self.leftup.y <= y && y <= self.rightdown.y
+    }
+
+    fn does_include_rect(&self, that: &Rectangle) -> bool {
+        let in_x_overwrapped = self.leftup.x < that.rightdown.x && self.rightdown.x > that.leftup.x;
+        let in_y_overwrapped = self.leftup.y < that.rightdown.y && self.rightdown.y > that.leftup.y;
+        in_x_overwrapped && in_y_overwrapped
     }
 }
