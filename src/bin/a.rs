@@ -53,8 +53,8 @@ impl Coord {
     }
 
     // マンハッタン距離
-    fn distance(&self, that: &Self) -> isize {
-        (self.x - that.x).abs() + (self.y - that.y).abs()
+    fn distance(&self, that: &Self) -> usize {
+        ((self.x - that.x).abs() + (self.y - that.y).abs()) as usize
     }
 
     fn mk_4dir(&self) -> Vec<Self> {
@@ -95,11 +95,15 @@ impl Coord {
 }
 
 struct Request {
-    id: usize,
+    id: usize, // 出力にしか使わない
     s: Coord,
     g: Coord,
 }
-impl Request {}
+impl Request {
+    fn calc_sg_dist(&self) -> usize {
+        self.s.distance(&self.g)
+    }
+}
 
 struct Input {
     reqs: Vec<Request>, // オーダー一覧
@@ -129,6 +133,7 @@ impl State {
         }
     }
 
+    // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
         for req in &self.choice {
@@ -168,14 +173,16 @@ fn main() {
         reqs.push(req)
     }
 
-    let input = Input::new(reqs);
+    // TODO: 戻す
+    // let input = Input::new(reqs);
 
     // solve
     let mut st = State::new();
 
+    reqs.sort_by_key(|req| req.calc_sg_dist());
     st.route.push(office.clone());
     for i in 0..SELECT_ORDER_NUM {
-        let req = &input.reqs[i];
+        let req = &reqs[i];
         st.choice.push(req.id);
         st.route.push(req.s.clone());
         st.route.push(req.g.clone());
