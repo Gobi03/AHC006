@@ -118,7 +118,8 @@ impl Input {
 #[allow(dead_code)]
 struct State {
     pos: Coord,
-    choice: Vec<usize>,
+    choice: Vec<usize>,    // 選んだ注文
+    choiced: Vec<bool>,    // 選ばれた注文が true
     route: Vec<Coord>,     // 現在地も含む
     todo: BTreeSet<Coord>, // これから踏まなければならない地点
     moved_dist: usize,     // ここまでの移動距離
@@ -129,6 +130,7 @@ impl State {
         Self {
             pos: Coord::new((400, 400)),
             choice: vec![],
+            choiced: vec![false; ORDER_TOTAL],
             route: vec![Coord::new((400, 400))],
             todo: BTreeSet::new(),
             moved_dist: 0,
@@ -139,14 +141,22 @@ impl State {
         self.route.push(to.clone());
         self.moved_dist += self.pos.distance(to);
 
+        self.todo.remove(&to);
+
         self.pos = to.clone();
+    }
+
+    fn choose(&mut self, req: &Request) {
+        self.choice.push(req.id);
+        self.choiced[req.id - 1] = true;
+
+        self.todo.insert(req.s.clone());
+        self.todo.insert(req.g.clone());
     }
 
     // リクエストを選んで、その始点に移る
     fn choose_and_move(&mut self, req: &Request) {
-        self.choice.push(req.id);
-        self.todo.insert(req.g.clone());
-
+        self.choose(&req);
         self.move_to(&req.s);
     }
 
@@ -213,8 +223,9 @@ fn main() {
     let mut st = State::new();
     st.solve(&input);
 
-    // outout
     eprintln!("score: {}", st.calc_score());
+    eprintln!("todo_len: {}", st.todo.len());
+    // outout
     st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
