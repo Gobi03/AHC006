@@ -26,7 +26,7 @@ const SELECT_ORDER_NUM: usize = 50;
 const SIDE: usize = 800;
 
 const SG_DIST_DEV: usize = 4;
-const RECT_LIMIT: isize = 550;
+const RECT_LIMIT: isize = 450;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Coord {
