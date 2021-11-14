@@ -94,6 +94,7 @@ impl Coord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 struct Request {
     id: usize, // 出力にしか使わない
@@ -165,6 +166,48 @@ impl State {
         (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
     }
 
+    // 最も始点が近い、未チョイスのリクエストを返す
+    fn search_nearest_req(&self, input: &Input) -> Request {
+        let mut res: Option<&Request> = None;
+        for req in &input.reqs {
+            if !self.choiced[req.id - 1] {
+                match res {
+                    None => {
+                        res = Some(&req);
+                    }
+                    Some(now) => {
+                        // now より近ければ
+                        if self.pos.distance(&req.s) < self.pos.distance(&now.s) {
+                            res = Some(&req);
+                        }
+                    }
+                }
+            }
+        }
+
+        (*res.unwrap()).clone()
+    }
+
+    // 最も近いtodo座標を返す
+    fn search_nearest_todo(&self) -> Coord {
+        let mut res: Option<&Coord> = None;
+        for to in &self.todo {
+            match res {
+                None => {
+                    res = Some(&to);
+                }
+                Some(now) => {
+                    // now より近ければ
+                    if self.pos.distance(&to) < self.pos.distance(&now) {
+                        res = Some(&to);
+                    }
+                }
+            }
+        }
+
+        (res.unwrap()).clone()
+    }
+
     // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
@@ -181,14 +224,24 @@ impl State {
     }
 
     fn solve(&mut self, input: &Input) {
+        // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
-        self.move_to(&office);
-        for i in 0..SELECT_ORDER_NUM {
-            let req = &input.reqs[i];
+        // 最も近い始点に向かう
+        while self.choice.len() < SELECT_ORDER_NUM {
+            let req = self.search_nearest_req(&input);
+            // TODO: 途中で消化できるtodoは消化する
             self.choose_and_move(&req);
-            self.move_to(&req.g);
         }
+
+        // todoを処理していく
+        // TODO: ここはTSP解きたい
+        while self.todo.len() > 0 {
+            let to: Coord = self.search_nearest_todo();
+            self.move_to(&to);
+        }
+
+        // 終点へ
         self.move_to(&office);
     }
 }
