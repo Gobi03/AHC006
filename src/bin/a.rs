@@ -302,8 +302,8 @@ impl State {
             }
         }
 
-        let mut yn = Yamanobori::new(path, table, system_time.clone());
-        yn.run(system_time.elapsed().unwrap().as_millis() + 1_900 / 5);
+        let mut yn = Yamanobori::new(path, table);
+        yn.run(1_900 / 5);
 
         for i in 1..yn.path.len() {
             let to: Coord = nodes[yn.path[i]];
@@ -363,18 +363,13 @@ fn main() {
 
 #[allow(dead_code)]
 struct Yamanobori {
-    path: Vec<usize>,
+    path: Vec<usize>, // ノード番号が入る。ノード番号は、tableのindexとも対応する。
     score: usize,
-    table: Vec<Vec<usize>>, // 二点間の距離
-    main_start_time: SystemTime,
+    table: Vec<Vec<usize>>, // [aノード番号][bノード番号] := a-b 間の距離
 }
 #[allow(dead_code)]
 impl Yamanobori {
-    fn new(
-        start_path: Vec<usize>,
-        table: Vec<Vec<usize>>,
-        main_start_time: SystemTime,
-    ) -> Yamanobori {
+    fn new(start_path: Vec<usize>, table: Vec<Vec<usize>>) -> Yamanobori {
         let mut score = 0;
         let path_length = start_path.len();
 
@@ -387,7 +382,6 @@ impl Yamanobori {
             path: start_path,
             score,
             table,
-            main_start_time,
         }
     }
 
@@ -404,14 +398,18 @@ impl Yamanobori {
     }
 
     // end_time: main関数の開始後からの時間を指す
+    // 始点終点は固定される
     fn run(
         &mut self,
-        end_time: u128, // ミリ秒表記
+        during_time: u128, // 焼きなまし実行時間(ミリ秒)
     ) {
+        let system_time = SystemTime::now();
+        let start_time = system_time.elapsed().unwrap().as_millis();
+
         let mut rand = rand_pcg::Pcg64Mcg::new(890482);
         let path_length = self.path.len();
 
-        while self.main_start_time.elapsed().unwrap().as_millis() < end_time {
+        while system_time.elapsed().unwrap().as_millis() - start_time < during_time {
             for _ in 0..1000 {
                 let mut lci = rand.gen_range(0, path_length); // left cut i
                 let mut rci = rand.gen_range(0, path_length); // right cut i
