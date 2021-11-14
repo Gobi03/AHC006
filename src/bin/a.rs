@@ -179,11 +179,16 @@ impl State {
             st.pos.distance(&req.s) + req.calc_sg_dist() / SG_DIST_DEV
         }
 
-        let hoge = RECT_LIMIT;
+        let hoge = RECT_LIMIT / 2;
         let under_hoge: Vec<&Request> = input
             .reqs
             .iter()
-            .filter(|req| req.s.x <= hoge && req.s.y <= hoge && req.g.x <= hoge && req.g.y <= hoge)
+            .filter(|req| {
+                (400 - hoge <= req.s.x && req.s.x <= 400 + hoge)
+                    && (400 - hoge <= req.s.y && req.s.y <= 400 + hoge)
+                    && (400 - hoge <= req.g.x && req.g.x <= 400 + hoge)
+                    && (400 - hoge <= req.g.y && req.g.y <= 400 + hoge)
+            })
             .collect();
         eprintln!("under_hoge len: {}", under_hoge.len());
         for req in &under_hoge {
@@ -400,7 +405,6 @@ impl Yamanobori {
 
         while self.main_start_time.elapsed().unwrap().as_millis() < end_time {
             for _ in 0..1000 {
-                // TODO: 1, -1 か
                 let mut lci = rand.gen_range(0, path_length); // left cut i
                 let mut rci = rand.gen_range(0, path_length); // right cut i
                 if lci > rci {
