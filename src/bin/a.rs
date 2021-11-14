@@ -225,6 +225,18 @@ impl State {
         (res.unwrap()).clone()
     }
 
+    // 途中経路にあるtodo座標の内１つをランダムに返す
+    fn check_todo(&self, rect: &Rectangle) -> Option<Coord> {
+        let mut res = None;
+        for e in &self.todo {
+            if rect.does_include_point(e) {
+                res = Some(e.clone());
+                break;
+            }
+        }
+        res
+    }
+
     // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
@@ -247,7 +259,24 @@ impl State {
         // 最も近い始点に向かう
         while self.choice.len() < SELECT_ORDER_NUM {
             let req = self.search_looks_good_req(&input);
-            // TODO: 途中で消化できるtodoは消化する <= 遠すぎて通り道にないのよな
+
+            // 途中で踏めるtodoを踏む
+            loop {
+                let rect = Rectangle::new(
+                    Coord::new((self.pos.x.min(req.s.x), self.pos.y.min(req.s.y))),
+                    Coord::new((self.pos.x.max(req.s.x), self.pos.y.max(req.s.y))),
+                );
+
+                match self.check_todo(&rect) {
+                    None => {
+                        break;
+                    }
+                    Some(pos) => {
+                        self.move_to(&pos);
+                    }
+                }
+            }
+
             self.choose_and_move(&req);
         }
 
@@ -406,7 +435,7 @@ struct Rectangle {
     leftup: Coord,
     rightdown: Coord,
 }
-
+#[allow(dead_code)]
 impl Rectangle {
     fn new(leftup: Coord, rightdown: Coord) -> Self {
         Rectangle { leftup, rightdown }
