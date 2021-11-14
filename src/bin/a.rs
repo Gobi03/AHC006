@@ -94,6 +94,7 @@ impl Coord {
     }
 }
 
+#[allow(dead_code)]
 struct Request {
     id: usize, // 出力にしか使わない
     s: Coord,
@@ -106,7 +107,7 @@ impl Request {
 }
 
 struct Input {
-    reqs: Vec<Request>, // オーダー一覧
+    reqs: Vec<Request>, // オーダー一覧. id-1 で引ける
 }
 impl Input {
     fn new(reqs: Vec<Request>) -> Self {
@@ -114,6 +115,7 @@ impl Input {
     }
 }
 
+#[allow(dead_code)]
 struct State {
     pos: Coord,
     choice: Vec<usize>,
@@ -131,6 +133,21 @@ impl State {
             todo: BTreeSet::new(),
             moved_dist: 0,
         }
+    }
+
+    fn move_to(&mut self, to: &Coord) {
+        self.route.push(to.clone());
+        self.moved_dist += self.pos.distance(to);
+
+        self.pos = to.clone();
+    }
+
+    // リクエストを選んで、その始点に移る
+    fn choose_and_move(&mut self, req: &Request) {
+        self.choice.push(req.id);
+        self.todo.insert(req.g.clone());
+
+        self.move_to(&req.s);
     }
 
     // 結果出力
@@ -173,16 +190,14 @@ fn main() {
         reqs.push(req)
     }
 
-    // TODO: 戻す
-    // let input = Input::new(reqs);
+    let input = Input::new(reqs);
 
     // solve
     let mut st = State::new();
 
-    reqs.sort_by_key(|req| req.calc_sg_dist());
     st.route.push(office.clone());
     for i in 0..SELECT_ORDER_NUM {
-        let req = &reqs[i];
+        let req = &input.reqs[i];
         st.choice.push(req.id);
         st.route.push(req.s.clone());
         st.route.push(req.g.clone());
