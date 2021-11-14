@@ -237,7 +237,12 @@ impl State {
 
         // todoを処理していく
         // TODO: ここはTSP解きたい
-        let nodes: Vec<Coord> = self.todo.clone().into_iter().collect();
+        let mut nodes: Vec<Coord> = self.todo.clone().into_iter().collect();
+        nodes.push(office.clone());
+        nodes.push(self.pos.clone());
+        nodes.rotate_right(1);
+        eprintln!("{:?}", nodes);
+
         let path = (0..nodes.len()).collect();
         let mut table = vec![vec![0; nodes.len()]; nodes.len()];
         for i in 0..nodes.len() {
@@ -251,8 +256,8 @@ impl State {
         let mut yn = Yamanobori::new(path, table, system_time.clone());
         yn.run(1_000);
 
-        for i in yn.path {
-            let to: Coord = nodes[i];
+        for i in 1..yn.path.len() {
+            let to: Coord = nodes[yn.path[i]];
             self.move_to(&to);
         }
 
