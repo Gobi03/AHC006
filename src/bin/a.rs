@@ -25,7 +25,7 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Coord {
     x: isize,
     y: isize,
@@ -101,6 +101,49 @@ struct Request {
 }
 impl Request {}
 
+struct Input {
+    reqs: Vec<Request>, // オーダー一覧
+}
+impl Input {
+    fn new(reqs: Vec<Request>) -> Self {
+        Self { reqs }
+    }
+}
+
+struct State {
+    pos: Coord,
+    choice: Vec<usize>,
+    route: Vec<Coord>,     // 現在地も含む
+    todo: BTreeSet<Coord>, // これから踏まなければならない地点
+    moved_dist: usize,     // ここまでの移動距離
+}
+impl State {
+    // 始点に降り立った状態
+    fn new() -> Self {
+        Self {
+            pos: Coord::new((400, 400)),
+            choice: vec![],
+            route: vec![Coord::new((400, 400))],
+            todo: BTreeSet::new(),
+            moved_dist: 0,
+        }
+    }
+
+    fn print(&self) {
+        print!("{}", self.choice.len());
+        for req in &self.choice {
+            print!(" {}", req);
+        }
+        println!();
+
+        print!("{}", self.route.len());
+        for pos in &self.route {
+            print!(" {} {}", pos.x, pos.y);
+        }
+        println!();
+    }
+}
+
 #[fastout]
 fn main() {
     let system_time = SystemTime::now();
@@ -108,6 +151,7 @@ fn main() {
 
     let office: Coord = Coord::new((400, 400));
 
+    // input
     let mut reqs = Vec::with_capacity(ORDER_TOTAL);
     for i in 1..=ORDER_TOTAL {
         input! {
@@ -124,29 +168,22 @@ fn main() {
         reqs.push(req)
     }
 
-    let mut choice = vec![];
-    let mut route = vec![];
+    let input = Input::new(reqs);
 
-    route.push(office.clone());
+    // solve
+    let mut st = State::new();
+
+    st.route.push(office.clone());
     for i in 0..SELECT_ORDER_NUM {
-        let req = &reqs[i];
-        choice.push(req.id);
-        route.push(req.s.clone());
-        route.push(req.g.clone());
+        let req = &input.reqs[i];
+        st.choice.push(req.id);
+        st.route.push(req.s.clone());
+        st.route.push(req.g.clone());
     }
-    route.push(office.clone());
+    st.route.push(office.clone());
 
-    print!("{}", choice.len());
-    for req in &choice {
-        print!(" {}", req);
-    }
-    println!();
-
-    print!("{}", route.len());
-    for pos in &route {
-        print!(" {} {}", pos.x, pos.y);
-    }
-    println!();
+    // outout
+    st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
