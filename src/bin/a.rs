@@ -25,8 +25,10 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
-const SG_DIST_DEV: usize = 3;
+const SG_DIST_DEV: usize = 4;
 const RECT_LIMIT: isize = 450;
+// TODO
+const MOVE_RECT_EXT: isize = 20;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Coord {
@@ -231,15 +233,12 @@ impl State {
     }
 
     // 途中経路にあるtodo座標の内１つをランダムに返す
-    fn check_todo(&self, rect: &Rectangle) -> Option<Coord> {
-        let mut res = None;
-        for e in &self.todo {
-            if rect.does_include_point(e) {
-                res = Some(e.clone());
-                break;
-            }
-        }
-        res
+    fn check_todo(&self, rect: &Rectangle) -> Vec<Coord> {
+        self.todo
+            .clone()
+            .into_iter()
+            .filter(|e| rect.does_include_point(e))
+            .collect::<Vec<_>>()
     }
 
     // 結果出力
@@ -266,19 +265,37 @@ impl State {
             let req = self.search_looks_good_req(&input);
 
             // 途中で踏めるtodoを踏む
-            loop {
-                let rect = Rectangle::new(
-                    Coord::new((self.pos.x.min(req.s.x), self.pos.y.min(req.s.y))),
-                    Coord::new((self.pos.x.max(req.s.x), self.pos.y.max(req.s.y))),
-                );
+            let rect = Rectangle::new(
+                Coord::new((
+                    self.pos.x.min(req.s.x) - MOVE_RECT_EXT,
+                    self.pos.y.min(req.s.y) - MOVE_RECT_EXT,
+                )),
+                Coord::new((
+                    self.pos.x.max(req.s.x) + MOVE_RECT_EXT,
+                    self.pos.y.max(req.s.y) + MOVE_RECT_EXT,
+                )),
+            );
+            // 山登りTSPでいい感じに巻き込む
+            let mut nodes = self.check_todo(&rect);
+            if nodes.len() > 1 {
+                nodes.push(req.s.clone());
+                nodes.push(self.pos.clone());
+                nodes.rotate_right(1);
 
-                match self.check_todo(&rect) {
-                    None => {
-                        break;
+                let path = (0..nodes.len()).collect();
+                let mut table = vec![vec![0; nodes.len()]; nodes.len()];
+                for i in 0..nodes.len() {
+                    for j in i + 1..nodes.len() {
+                        let dist = nodes[i].distance(&nodes[j]);
+                        table[i][j] = dist;
+                        table[j][i] = dist;
                     }
-                    Some(pos) => {
-                        self.move_to(&pos);
-                    }
+                }
+                let mut yn = Yamanobori::new(path, table, system_time.clone());
+                yn.run(50);
+
+                for i in 1..yn.path.len() - 1 {
+                    self.move_to(&nodes[yn.path[i]]);
                 }
             }
 
