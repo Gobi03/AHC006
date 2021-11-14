@@ -169,6 +169,18 @@ impl State {
         }
         println!();
     }
+
+    fn solve(&mut self, input: &Input) {
+        let office: Coord = Coord::new((400, 400));
+
+        self.move_to(&office);
+        for i in 0..SELECT_ORDER_NUM {
+            let req = &input.reqs[i];
+            self.choose_and_move(&req);
+            self.move_to(&req.g);
+        }
+        self.move_to(&office);
+    }
 }
 
 #[fastout]
@@ -199,14 +211,7 @@ fn main() {
 
     // solve
     let mut st = State::new();
-
-    st.move_to(&office);
-    for i in 0..SELECT_ORDER_NUM {
-        let req = &input.reqs[i];
-        st.choose_and_move(&req);
-        st.move_to(&req.g);
-    }
-    st.move_to(&office);
+    st.solve(&input);
 
     // outout
     eprintln!("score: {}", st.calc_score());
