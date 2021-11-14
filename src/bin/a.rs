@@ -166,7 +166,9 @@ impl State {
         (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
     }
 
-    // 未チョイスのリクエストの内、現地点との始点の近さ、始点-終点間の距離の近さ、がいい感じのものを選ぶ
+    // 未チョイスのリクエストの内、以下基準で良さそうなものを選ぶ。
+    // - 現地点との始点の近さ
+    // - 始点-終点間の距離の近さ
     fn search_looks_good_req(&self, input: &Input) -> Request {
         let mut res: Option<&Request> = None;
         fn calc(st: &State, req: &Request) -> usize {
@@ -174,7 +176,14 @@ impl State {
             st.pos.distance(&req.s) + req.calc_sg_dist() / 4
         }
 
-        for req in &input.reqs {
+        let hoge = 550;
+        let under_hoge: Vec<&Request> = input
+            .reqs
+            .iter()
+            .filter(|req| req.s.x <= hoge && req.s.y <= hoge && req.g.x <= hoge && req.g.y <= hoge)
+            .collect();
+        eprintln!("under_hoge len: {}", under_hoge.len());
+        for req in &under_hoge {
             if !self.choiced[req.id - 1] {
                 match res {
                     None => {
@@ -234,7 +243,6 @@ impl State {
 
         // 最も近い始点に向かう
         while self.choice.len() < SELECT_ORDER_NUM {
-            // TODO: 始点-終点 間の距離も評価関数に入れて良さそう
             let req = self.search_looks_good_req(&input);
             // TODO: 途中で消化できるtodoは消化する <= 遠すぎて通り道にないのよな
             self.choose_and_move(&req);
