@@ -164,7 +164,7 @@ impl State {
     fn print(&self) {
         print!("{}", self.choice.len());
         for req in &self.choice {
-            print!(" {}", req + 1);
+            print!(" {}", req);
         }
         println!();
 
@@ -200,8 +200,7 @@ impl State {
             self.route.push(Point::Start(i, req.s.clone()));
             self.route.rotate_right(1);
 
-            self.choice.push(i);
-            self.choiced[i] = true;
+            self.choose(&req);
         }
         self.choice.reverse();
         self.moved_dist = self.calc_route();
