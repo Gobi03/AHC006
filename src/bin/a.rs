@@ -121,6 +121,14 @@ enum Point {
     Start(usize, Coord),
     Goal(usize, Coord),
 }
+impl Point {
+    fn get_pos(&self) -> Coord {
+        match self {
+            Point::Start(_, pos) => pos.clone(),
+            Point::Goal(_, pos) => pos.clone(),
+        }
+    }
+}
 
 #[allow(dead_code)]
 struct State {
@@ -130,7 +138,6 @@ struct State {
     route: Vec<Point>,  // 現在地も含む
     moved_dist: usize,  // ここまでの移動距離
 }
-#[allow(dead_code)]
 impl State {
     // 始点に降り立った状態
     fn new() -> Self {
@@ -143,22 +150,9 @@ impl State {
         }
     }
 
-    fn move_to(&mut self, to: &Coord) {
-        self.route.push(to.clone());
-        self.moved_dist += self.pos.distance(to);
-
-        self.pos = to.clone();
-    }
-
     fn choose(&mut self, req: &Request) {
         self.choice.push(req.id);
         self.choiced[req.id - 1] = true;
-    }
-
-    // リクエストを選んで、その始点に移る
-    fn choose_and_move(&mut self, req: &Request) {
-        self.choose(&req);
-        self.move_to(&req.s);
     }
 
     // ここまでの移動距離でスコア算出
@@ -170,26 +164,49 @@ impl State {
     fn print(&self) {
         print!("{}", self.choice.len());
         for req in &self.choice {
-            print!(" {}", req);
+            print!(" {}", req + 1);
         }
         println!();
 
-        print!("{}", self.route.len());
+        print!("{}", self.route.len() + 2);
+        print!(" {} {}", 400, 400);
         for point in &self.route {
-            let Coord { x, y } = match point {
-                Point::Start(_, pos) => pos,
-                Point::Goal(_, pos) => pos,
-            };
+            let Coord { x, y } = point.get_pos();
             print!(" {} {}", x, y);
         }
+        print!(" {} {}", 400, 400);
         println!();
     }
 
-    fn solve(&mut self, input: &Input) {
+    fn calc_route(&self) -> usize {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
-        // O(m) でいいとこに差し込む
+        let mut dist = 0;
+        let mut now = office.clone();
+        for point in &self.route {
+            dist += now.distance(&point.get_pos());
+            now = point.get_pos();
+        }
+        dist += now.distance(&office);
+        dist
+    }
+
+    fn solve(&mut self, input: &Input) {
+        // 最初に適当なpathを作る。shiftを上手く使って構成。最後に合算距離を求める。
+        for i in 0..50 {
+            let req = input.reqs[i];
+            self.route.push(Point::Goal(i, req.g.clone()));
+            self.route.push(Point::Start(i, req.s.clone()));
+            self.route.rotate_right(1);
+
+            self.choice.push(i);
+            self.choiced[i] = true;
+        }
+        self.choice.reverse();
+        self.moved_dist = self.calc_route();
+
+        // TODO: O(m) でいいとこに差し込む
     }
 }
 
