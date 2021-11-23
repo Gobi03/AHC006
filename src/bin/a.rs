@@ -116,14 +116,19 @@ impl Input {
     }
 }
 
+enum Point {
+    // (id, pos)
+    Start(usize, Coord),
+    Goal(usize, Coord),
+}
+
 #[allow(dead_code)]
 struct State {
     pos: Coord,
-    choice: Vec<usize>,    // 選んだ注文
-    choiced: Vec<bool>,    // 選ばれた注文が true
-    route: Vec<Coord>,     // 現在地も含む
-    todo: BTreeSet<Coord>, // これから踏まなければならない地点
-    moved_dist: usize,     // ここまでの移動距離
+    choice: Vec<usize>, // 選んだ注文
+    choiced: Vec<bool>, // 選ばれた注文が true
+    route: Vec<Point>,  // 現在地も含む
+    moved_dist: usize,  // ここまでの移動距離
 }
 #[allow(dead_code)]
 impl State {
@@ -133,8 +138,7 @@ impl State {
             pos: Coord::new((400, 400)),
             choice: vec![],
             choiced: vec![false; ORDER_TOTAL],
-            route: vec![Coord::new((400, 400))],
-            todo: BTreeSet::new(),
+            route: vec![],
             moved_dist: 0,
         }
     }
@@ -143,17 +147,12 @@ impl State {
         self.route.push(to.clone());
         self.moved_dist += self.pos.distance(to);
 
-        self.todo.remove(&to);
-
         self.pos = to.clone();
     }
 
     fn choose(&mut self, req: &Request) {
         self.choice.push(req.id);
         self.choiced[req.id - 1] = true;
-
-        self.todo.insert(req.s.clone());
-        self.todo.insert(req.g.clone());
     }
 
     // リクエストを選んで、その始点に移る
@@ -167,26 +166,6 @@ impl State {
         (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
     }
 
-    // 最も近いtodo座標を返す
-    fn _search_nearest_todo(&self) -> Coord {
-        let mut res: Option<&Coord> = None;
-        for to in &self.todo {
-            match res {
-                None => {
-                    res = Some(&to);
-                }
-                Some(now) => {
-                    // now より近ければ
-                    if self.pos.distance(&to) < self.pos.distance(&now) {
-                        res = Some(&to);
-                    }
-                }
-            }
-        }
-
-        (res.unwrap()).clone()
-    }
-
     // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
@@ -196,8 +175,12 @@ impl State {
         println!();
 
         print!("{}", self.route.len());
-        for pos in &self.route {
-            print!(" {} {}", pos.x, pos.y);
+        for point in &self.route {
+            let Coord { x, y } = match point {
+                Point::Start(_, pos) => pos,
+                Point::Goal(_, pos) => pos,
+            };
+            print!(" {} {}", x, y);
         }
         println!();
     }
