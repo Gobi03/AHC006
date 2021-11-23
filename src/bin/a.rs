@@ -140,14 +140,27 @@ struct State {
 }
 impl State {
     // 始点に降り立った状態
-    fn new() -> Self {
-        Self {
+    fn new(input: &Input) -> Self {
+        let mut st = Self {
             pos: Coord::new((400, 400)),
             choice: vec![],
             choiced: vec![false; ORDER_TOTAL],
             route: vec![],
             moved_dist: 0,
+        };
+
+        // 最初に適当なpathを作る。shiftを上手く使って構成。最後に合算距離を求める。
+        for i in 0..50 {
+            let req = input.reqs[i];
+            st.route.push(Point::Goal(i, req.g.clone()));
+            st.route.push(Point::Start(i, req.s.clone()));
+            st.route.rotate_right(1);
+
+            st.choose(&req);
         }
+        st.moved_dist = st.calc_route();
+
+        st
     }
 
     fn choose(&mut self, req: &Request) {
@@ -193,17 +206,6 @@ impl State {
     }
 
     fn solve(&mut self, input: &Input) {
-        // 最初に適当なpathを作る。shiftを上手く使って構成。最後に合算距離を求める。
-        for i in 0..50 {
-            let req = input.reqs[i];
-            self.route.push(Point::Goal(i, req.g.clone()));
-            self.route.push(Point::Start(i, req.s.clone()));
-            self.route.rotate_right(1);
-
-            self.choose(&req);
-        }
-        self.choice.reverse();
-        self.moved_dist = self.calc_route();
 
         // TODO: O(m) でいいとこに差し込む
     }
@@ -235,7 +237,7 @@ fn main() {
     let input = Input::new(reqs);
 
     // ** solve **
-    let mut st = State::new();
+    let mut st = State::new(&input);
     st.solve(&input);
 
     eprintln!("score: {}", st.calc_score());
