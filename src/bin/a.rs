@@ -25,11 +25,6 @@ const SELECT_ORDER_NUM: usize = 50;
 
 const SIDE: usize = 800;
 
-const SG_DIST_DEV: usize = 4;
-const RECT_LIMIT: isize = 450;
-// TODO
-const MOVE_RECT_EXT: isize = 20;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Coord {
     x: isize,
@@ -130,6 +125,7 @@ struct State {
     todo: BTreeSet<Coord>, // これから踏まなければならない地点
     moved_dist: usize,     // ここまでの移動距離
 }
+#[allow(dead_code)]
 impl State {
     // 始点に降り立った状態
     fn new() -> Self {
@@ -171,47 +167,6 @@ impl State {
         (1e8 / (1000.0 + self.moved_dist as f64)).round() as usize
     }
 
-    // 未チョイスのリクエストの内、以下基準で良さそうなものを選ぶ。
-    // - 現地点との始点の近さ
-    // - 始点-終点間の距離の近さ
-    fn search_looks_good_req(&self, input: &Input, sg_dist_dev: usize) -> Request {
-        let mut res: Option<&Request> = None;
-        fn calc(st: &State, req: &Request, sg_dist_dev: usize) -> usize {
-            // TODO: ここ変動させて全パターン試すとか
-            st.pos.distance(&req.s) + req.calc_sg_dist() / sg_dist_dev
-        }
-
-        let hoge = RECT_LIMIT / 2;
-        let under_hoge: Vec<&Request> = input
-            .reqs
-            .iter()
-            .filter(|req| {
-                (400 - hoge <= req.s.x && req.s.x <= 400 + hoge)
-                    && (400 - hoge <= req.s.y && req.s.y <= 400 + hoge)
-                    && (400 - hoge <= req.g.x && req.g.x <= 400 + hoge)
-                    && (400 - hoge <= req.g.y && req.g.y <= 400 + hoge)
-            })
-            .collect();
-        // eprintln!("under_hoge len: {}", under_hoge.len());
-        for req in &under_hoge {
-            if !self.choiced[req.id - 1] {
-                match res {
-                    None => {
-                        res = Some(&req);
-                    }
-                    Some(now) => {
-                        // now より良さそうなら
-                        if calc(&self, &req, sg_dist_dev) < calc(&self, &now, sg_dist_dev) {
-                            res = Some(&req);
-                        }
-                    }
-                }
-            }
-        }
-
-        (*res.unwrap()).clone()
-    }
-
     // 最も近いtodo座標を返す
     fn _search_nearest_todo(&self) -> Coord {
         let mut res: Option<&Coord> = None;
@@ -232,15 +187,6 @@ impl State {
         (res.unwrap()).clone()
     }
 
-    // 途中経路にあるtodo座標の内１つをランダムに返す
-    fn check_todo(&self, rect: &Rectangle) -> Vec<Coord> {
-        self.todo
-            .clone()
-            .into_iter()
-            .filter(|e| rect.does_include_point(e))
-            .collect::<Vec<_>>()
-    }
-
     // 結果出力
     fn print(&self) {
         print!("{}", self.choice.len());
@@ -256,79 +202,11 @@ impl State {
         println!();
     }
 
-    fn solve(&mut self, input: &Input, sg_dist_dev: usize) {
+    fn solve(&mut self, input: &Input) {
         // const 的なアレ
         let office: Coord = Coord::new((400, 400));
 
-        // 最も近い始点に向かう
-        while self.choice.len() < SELECT_ORDER_NUM {
-            let req = self.search_looks_good_req(&input, sg_dist_dev);
-
-            // 途中で踏めるtodoを踏む
-            let rect = Rectangle::new(
-                Coord::new((
-                    self.pos.x.min(req.s.x) - MOVE_RECT_EXT,
-                    self.pos.y.min(req.s.y) - MOVE_RECT_EXT,
-                )),
-                Coord::new((
-                    self.pos.x.max(req.s.x) + MOVE_RECT_EXT,
-                    self.pos.y.max(req.s.y) + MOVE_RECT_EXT,
-                )),
-            );
-            // 山登りTSPでいい感じに巻き込む
-            let mut nodes = self.check_todo(&rect);
-            if nodes.len() > 1 {
-                nodes.push(req.s.clone());
-                nodes.push(self.pos.clone());
-                nodes.rotate_right(1);
-
-                let path = (0..nodes.len()).collect();
-                let mut table = vec![vec![0; nodes.len()]; nodes.len()];
-                for i in 0..nodes.len() {
-                    for j in i + 1..nodes.len() {
-                        let dist = nodes[i].distance(&nodes[j]);
-                        table[i][j] = dist;
-                        table[j][i] = dist;
-                    }
-                }
-                let mut yn = Yamanobori::new(path, table);
-                yn.run(7);
-
-                for i in 1..yn.path.len() - 1 {
-                    self.move_to(&nodes[yn.path[i]]);
-                }
-            }
-
-            self.choose_and_move(&req);
-        }
-
-        // todoを処理していく
-        let mut nodes: Vec<Coord> = self.todo.clone().into_iter().collect();
-        nodes.push(office.clone());
-        nodes.push(self.pos.clone());
-        nodes.rotate_right(1);
-        // eprintln!("{:?}", nodes);
-
-        let path = (0..nodes.len()).collect();
-        let mut table = vec![vec![0; nodes.len()]; nodes.len()];
-        for i in 0..nodes.len() {
-            for j in i + 1..nodes.len() {
-                let dist = nodes[i].distance(&nodes[j]);
-                table[i][j] = dist;
-                table[j][i] = dist;
-            }
-        }
-
-        let mut yn = Yamanobori::new(path, table);
-        yn.run(1_800 / 5);
-
-        for i in 1..yn.path.len() {
-            let to: Coord = nodes[yn.path[i]];
-            self.move_to(&to);
-        }
-
-        // 終点へ
-        self.move_to(&office);
+        // O(m) でいいとこに差し込む
     }
 }
 
@@ -339,7 +217,7 @@ fn main() {
 
     let _office: Coord = Coord::new((400, 400));
 
-    // input
+    // ** input **
     let mut reqs = Vec::with_capacity(ORDER_TOTAL);
     for i in 1..=ORDER_TOTAL {
         input! {
@@ -355,25 +233,17 @@ fn main() {
         let req = Request { id: i, s, g };
         reqs.push(req)
     }
-
     let input = Input::new(reqs);
 
-    // solve
-    let mut ans_st = State::new();
-    ans_st.solve(&input, 2);
-    for i in 3..=6 {
-        let mut st = State::new();
-        st.solve(&input, i);
-        if st.calc_score() > ans_st.calc_score() {
-            ans_st = st;
-        }
-    }
+    // ** solve **
+    let mut st = State::new();
+    st.solve(&input);
 
-    eprintln!("score: {}", ans_st.calc_score());
+    eprintln!("score: {}", st.calc_score());
     // eprintln!("todo_len: {}", st.todo.len());
 
-    // outout
-    ans_st.print();
+    // ** outout **
+    st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
@@ -454,39 +324,5 @@ impl Yamanobori {
                 }
             }
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Rectangle {
-    leftup: Coord,
-    rightdown: Coord,
-}
-#[allow(dead_code)]
-impl Rectangle {
-    fn new(leftup: Coord, rightdown: Coord) -> Self {
-        Rectangle { leftup, rightdown }
-    }
-
-    fn calc_area(&self) -> isize {
-        (self.rightdown.x - self.leftup.x) * (self.rightdown.y - self.leftup.y)
-    }
-
-    fn in_field(&self) -> bool {
-        self.leftup.x >= 0
-            && self.leftup.y >= 0
-            && self.rightdown.x < SIDE as isize
-            && self.rightdown.y < SIDE as isize
-    }
-
-    fn does_include_point(&self, point: &Coord) -> bool {
-        let &Coord { x, y } = point;
-        self.leftup.x <= x && x <= self.rightdown.x && self.leftup.y <= y && y <= self.rightdown.y
-    }
-
-    fn does_include_rect(&self, that: &Rectangle) -> bool {
-        let in_x_overwrapped = self.leftup.x < that.rightdown.x && self.rightdown.x > that.leftup.x;
-        let in_y_overwrapped = self.leftup.y < that.rightdown.y && self.rightdown.y > that.leftup.y;
-        in_x_overwrapped && in_y_overwrapped
     }
 }
