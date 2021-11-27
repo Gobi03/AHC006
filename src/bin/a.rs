@@ -195,12 +195,12 @@ impl State {
                             dist_diff -= pos.distance(&office) as isize;
                             dist_diff += office.distance(&self.route[i + 1].get_pos()) as isize;
                         } else {
-                            let pre_pos = self.route[i - 1].get_pos();
-                            dist_diff -= pos.distance(&pre_pos) as isize;
-                            dist_diff += pre_pos.distance(&self.route[i + 1].get_pos()) as isize;
+                            let left_pos = self.route[i - 1].get_pos();
+                            dist_diff -= pos.distance(&left_pos) as isize;
+                            dist_diff += left_pos.distance(&self.route[i + 1].get_pos()) as isize;
                         }
                         // 右側
-                        pos.distance(&self.route[i + 1].get_pos()) as isize;
+                        dist_diff -= pos.distance(&self.route[i + 1].get_pos()) as isize;
 
                         // remove
                         self.route.remove(i);
@@ -216,11 +216,11 @@ impl State {
                         if i == self.route.len() - 1 {
                             // officeとの距離比較になる場合
                             dist_diff -= pos.distance(&office) as isize;
-                            dist_diff += office.distance(&self.route[i + 1].get_pos()) as isize;
+                            dist_diff += office.distance(&self.route[i - 1].get_pos()) as isize;
                         } else {
-                            let post_pos = self.route[i + 1].get_pos();
-                            dist_diff -= pos.distance(&post_pos) as isize;
-                            dist_diff += post_pos.distance(&self.route[i - 1].get_pos()) as isize;
+                            let right_pos = self.route[i + 1].get_pos();
+                            dist_diff -= pos.distance(&right_pos) as isize;
+                            dist_diff += right_pos.distance(&self.route[i - 1].get_pos()) as isize;
                         }
 
                         // remove
@@ -304,8 +304,14 @@ impl State {
         self.unchoose(remove_id);
         let remove_dist = self.remove_from_route(remove_id);
 
+        self.print();
+        self.moved_dist = (self.moved_dist as isize + remove_dist) as usize;
+        // eprintln!("moved_dist: {}", self.moved_dist);
+        // eprintln!("calc_route: {}", self.calc_route());
+
         // ** 逆側からの累積和?でsの位置に対するgの最適位置をメモ **/
         // TODO: remove_idでなく乱択
+        //let insert_id = :
         let new_request: Request = input.reqs[remove_id - 1];
         // (左側に差し込まれる要素のindex, 加わる距離)
         // 1注文以上がs-g間に挟まる前提
@@ -342,9 +348,7 @@ impl State {
             .insert(best_g_index, Point::Goal(new_request.id, new_request.g));
         self.route
             .insert(best_s_index, Point::Start(new_request.id, new_request.s));
-        self.moved_dist = (self.moved_dist as isize + remove_dist + best_dist) as usize;
-
-        // remove_dist と best_dist が釣り合ってなければやめる
+        self.moved_dist = (self.moved_dist as isize + best_dist) as usize;
     }
 }
 
