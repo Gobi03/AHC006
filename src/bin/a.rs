@@ -208,13 +208,12 @@ impl State {
                             dist_diff += left_pos.distance(&right_pos) as isize;
                         }
                         // 右側
-                        let right_pos = 
+                        let right_pos = if i == self.route.len() - 1 {
                             // s-g が末尾で隣り合ってたケース
-                            if i == self.route.len() - 1 {
-                                office
-                            } else {
-                                self.route[i + 1].get_pos()
-                            };
+                            office
+                        } else {
+                            self.route[i + 1].get_pos()
+                        };
                         dist_diff -= pos.distance(&right_pos) as isize;
 
                         // remove
