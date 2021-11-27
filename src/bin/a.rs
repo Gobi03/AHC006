@@ -189,7 +189,7 @@ impl State {
             match self.route[i] {
                 Point::Start(id, pos) => {
                     if id == req_id {
-                        // 左側
+                        // 左側 + 新規接続
                         if i == 0 {
                             // officeとの距離比較になる場合
                             dist_diff -= pos.distance(&office) as isize;
@@ -212,7 +212,7 @@ impl State {
                     if id == req_id {
                         // 左側
                         dist_diff -= pos.distance(&self.route[i - 1].get_pos()) as isize;
-                        // 右側
+                        // 右側 + 新規接続
                         if i == self.route.len() - 1 {
                             // officeとの距離比較になる場合
                             dist_diff -= pos.distance(&office) as isize;
@@ -270,22 +270,87 @@ impl State {
         dist
     }
 
+    fn calc_input_dist_diff(&self, index: usize, pos: &Coord) -> isize {
+        let mut dist_diff: isize = 0;
+        let office: Coord = Coord::new((400, 400));
+        if index == 0 {
+            let right_pos = self.route[index].get_pos();
+            dist_diff -= right_pos.distance(&office) as isize;
+            dist_diff += pos.distance(&right_pos) as isize;
+            dist_diff += pos.distance(&office) as isize;
+        } else if index == self.route.len() {
+            let left_pos = self.route[index - 1].get_pos();
+            dist_diff -= left_pos.distance(&office) as isize;
+            dist_diff += pos.distance(&left_pos) as isize;
+            dist_diff += pos.distance(&office) as isize;
+        } else {
+            let left_pos = self.route[index - 1].get_pos();
+            let right_pos = self.route[index].get_pos();
+            dist_diff -= left_pos.distance(&right_pos) as isize;
+            dist_diff += pos.distance(&left_pos) as isize;
+            dist_diff += pos.distance(&right_pos) as isize;
+        }
+
+        dist_diff
+    }
+
     fn solve(&mut self, input: &Input) {
+        let mut rng = thread_rng();
 
         // TODO: O(m) でいいとこに差し込む
 
-        // 距離の差分計算的なメソッドが欲しそう State.unchoose, State.remove_from_route 的なやつ
-        // filter でs-gを消す
+        // idを指定して、そのrouteを消す
+        let remove_id = self.choice.choose(&mut rng).unwrap().clone();
+        self.unchoose(remove_id);
+        let remove_dist = self.remove_from_route(remove_id);
 
-        // 逆側からの累積和?でsの位置に対するgの最適位置をメモ
+        // ** 逆側からの累積和?でsの位置に対するgの最適位置をメモ **/
+        // TODO: remove_idでなく乱択
+        let new_request: Request = input.reqs[remove_id - 1];
+        // (左側に差し込まれる要素のindex, 加わる距離)
+        // 1注文以上がs-g間に挟まる前提
+        let mut gs_dp = vec![(0, 0); self.route.len() + 1];
+        gs_dp[self.route.len()] = (
+            self.route.len(),
+            self.calc_input_dist_diff(self.route.len(), &new_request.g),
+        );
+        for i in (0..self.route.len()).rev() {
+            let (pre_index, pre_dist) = gs_dp[i + 1];
+            let cur_dist = self.calc_input_dist_diff(i, &new_request.g);
+            if cur_dist <= pre_dist {
+                gs_dp[i] = (i, cur_dist);
+            } else {
+                gs_dp[i] = (pre_index, pre_dist);
+            }
+        }
+
         // s - g の距離の変動が最適な位置に差し込む
+        let mut best_dist = std::isize::MAX;
+        let mut best_s_index: usize = 1001;
+        let mut best_g_index: usize = 1001;
+        for s_index in 0..self.route.len() {
+            let (g_index, g_dist) = gs_dp[s_index + 1];
+            let s_dist = self.calc_input_dist_diff(s_index, &new_request.s);
+            if s_dist + g_dist < best_dist {
+                best_dist = s_dist + g_dist;
+                best_s_index = s_index;
+                best_g_index = g_index;
+            }
+        }
+        self.choose(&new_request);
+        self.route
+            .insert(best_g_index, Point::Goal(new_request.id, new_request.g));
+        self.route
+            .insert(best_s_index, Point::Start(new_request.id, new_request.s));
+        self.moved_dist = (self.moved_dist as isize + remove_dist + best_dist) as usize;
+
+        // remove_dist と best_dist が釣り合ってなければやめる
     }
 }
 
 #[fastout]
 fn main() {
     let system_time = SystemTime::now();
-    let mut _rng = thread_rng();
 
     let _office: Coord = Coord::new((400, 400));
 
