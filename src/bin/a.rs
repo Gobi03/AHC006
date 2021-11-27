@@ -128,12 +128,19 @@ impl Point {
             Point::Goal(_, pos) => pos.clone(),
         }
     }
+
+    fn get_id(&self) -> usize {
+        match self {
+            Point::Start(id, pos) => id.clone(),
+            Point::Goal(id, pos) => id.clone(),
+        }
+    }
 }
 
 #[allow(dead_code)]
 struct State {
     pos: Coord,
-    choice: Vec<usize>, // 選んだ注文
+    choice: Vec<usize>, // 選んだ注文のid
     choiced: Vec<bool>, // 選ばれた注文が true
     route: Vec<Point>,  // 現在地も含む
     moved_dist: usize,  // ここまでの移動距離
@@ -152,8 +159,8 @@ impl State {
         // 最初に適当なpathを作る。shiftを上手く使って構成。最後に合算距離を求める。
         for i in 0..50 {
             let req = input.reqs[i];
-            st.route.push(Point::Goal(i, req.g.clone()));
-            st.route.push(Point::Start(i, req.s.clone()));
+            st.route.push(Point::Goal(i + 1, req.g.clone()));
+            st.route.push(Point::Start(i + 1, req.s.clone()));
             st.route.rotate_right(1);
 
             st.choose(&req);
@@ -166,6 +173,64 @@ impl State {
     fn choose(&mut self, req: &Request) {
         self.choice.push(req.id);
         self.choiced[req.id - 1] = true;
+    }
+
+    fn unchoose(&mut self, req_id: usize) {
+        remove_item(&mut self.choice, &req_id);
+        self.choiced[req_id - 1] = false;
+    }
+
+    // return dist_diff
+    fn remove_from_route(&mut self, req_id: usize) -> isize {
+        let office: Coord = Coord::new((400, 400));
+        let mut dist_diff: isize = 0;
+
+        for i in (0..self.route.len()).rev() {
+            match self.route[i] {
+                Point::Start(id, pos) => {
+                    if id == req_id {
+                        // 左側
+                        if i == 0 {
+                            // officeとの距離比較になる場合
+                            dist_diff -= pos.distance(&office) as isize;
+                            dist_diff += office.distance(&self.route[i + 1].get_pos()) as isize;
+                        } else {
+                            let pre_pos = self.route[i - 1].get_pos();
+                            dist_diff -= pos.distance(&pre_pos) as isize;
+                            dist_diff += pre_pos.distance(&self.route[i + 1].get_pos()) as isize;
+                        }
+                        // 右側
+                        pos.distance(&self.route[i + 1].get_pos()) as isize;
+
+                        // remove
+                        self.route.remove(i);
+
+                        break;
+                    }
+                }
+                Point::Goal(id, pos) => {
+                    if id == req_id {
+                        // 左側
+                        dist_diff -= pos.distance(&self.route[i - 1].get_pos()) as isize;
+                        // 右側
+                        if i == self.route.len() - 1 {
+                            // officeとの距離比較になる場合
+                            dist_diff -= pos.distance(&office) as isize;
+                            dist_diff += office.distance(&self.route[i + 1].get_pos()) as isize;
+                        } else {
+                            let post_pos = self.route[i + 1].get_pos();
+                            dist_diff -= pos.distance(&post_pos) as isize;
+                            dist_diff += post_pos.distance(&self.route[i - 1].get_pos()) as isize;
+                        }
+
+                        // remove
+                        self.route.remove(i);
+                    }
+                }
+            }
+        }
+
+        dist_diff
     }
 
     // ここまでの移動距離でスコア算出
@@ -208,6 +273,12 @@ impl State {
     fn solve(&mut self, input: &Input) {
 
         // TODO: O(m) でいいとこに差し込む
+
+        // 距離の差分計算的なメソッドが欲しそう State.unchoose, State.remove_from_route 的なやつ
+        // filter でs-gを消す
+
+        // 逆側からの累積和?でsの位置に対するgの最適位置をメモ
+        // s - g の距離の変動が最適な位置に差し込む
     }
 }
 
@@ -247,6 +318,11 @@ fn main() {
     st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
+}
+
+fn remove_item<T: Eq>(v: &mut Vec<T>, e: &T) {
+    let index = v.iter().position(|elem| *elem == *e).unwrap();
+    v.remove(index);
 }
 
 #[allow(dead_code)]
