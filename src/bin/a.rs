@@ -310,9 +310,16 @@ impl State {
         // eprintln!("calc_route: {}", self.calc_route());
 
         // ** 逆側からの累積和?でsの位置に対するgの最適位置をメモ **/
-        // TODO: remove_idでなく乱択
-        //let insert_id = :
-        let new_request: Request = input.reqs[remove_id - 1];
+        // 挿入するリクエストを乱択
+        let insert_id: usize;
+        loop {
+            let tmp_id = rng.gen_range(1, ORDER_TOTAL) + 1;
+            if !self.choiced[tmp_id] {
+                insert_id = tmp_id;
+                break;
+            }
+        }
+        let new_request: Request = input.reqs[insert_id - 1];
         // (左側に差し込まれる要素のindex, 加わる距離)
         // 1注文以上がs-g間に挟まる前提
         let mut gs_dp = vec![(0, 0); self.route.len() + 1];
