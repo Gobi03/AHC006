@@ -116,6 +116,7 @@ impl Input {
     }
 }
 
+#[derive(Debug)]
 enum Point {
     // (id, pos)
     Start(usize, Coord),
@@ -191,16 +192,30 @@ impl State {
                     if id == req_id {
                         // 左側 + 新規接続
                         if i == 0 {
+                            let right_pos = self.route[i + 1].get_pos();
                             // officeとの距離比較になる場合
                             dist_diff -= pos.distance(&office) as isize;
-                            dist_diff += office.distance(&self.route[i + 1].get_pos()) as isize;
-                        } else {
+                            dist_diff += office.distance(&right_pos) as isize;
+                        } else if i == self.route.len() - 1 {
+                            // s-g が末尾で隣り合ってたケース
                             let left_pos = self.route[i - 1].get_pos();
                             dist_diff -= pos.distance(&left_pos) as isize;
-                            dist_diff += left_pos.distance(&self.route[i + 1].get_pos()) as isize;
+                            dist_diff += left_pos.distance(&office) as isize;
+                        } else {
+                            let left_pos = self.route[i - 1].get_pos();
+                            let right_pos = self.route[i + 1].get_pos();
+                            dist_diff -= pos.distance(&left_pos) as isize;
+                            dist_diff += left_pos.distance(&right_pos) as isize;
                         }
                         // 右側
-                        dist_diff -= pos.distance(&self.route[i + 1].get_pos()) as isize;
+                        let right_pos = 
+                            // s-g が末尾で隣り合ってたケース
+                            if i == self.route.len() - 1 {
+                                office
+                            } else {
+                                self.route[i + 1].get_pos()
+                            };
+                        dist_diff -= pos.distance(&right_pos) as isize;
 
                         // remove
                         self.route.remove(i);
@@ -210,17 +225,18 @@ impl State {
                 }
                 Point::Goal(id, pos) => {
                     if id == req_id {
+                        let left_pos = self.route[i - 1].get_pos();
                         // 左側
-                        dist_diff -= pos.distance(&self.route[i - 1].get_pos()) as isize;
+                        dist_diff -= pos.distance(&left_pos) as isize;
                         // 右側 + 新規接続
                         if i == self.route.len() - 1 {
                             // officeとの距離比較になる場合
                             dist_diff -= pos.distance(&office) as isize;
-                            dist_diff += office.distance(&self.route[i - 1].get_pos()) as isize;
+                            dist_diff += office.distance(&left_pos) as isize;
                         } else {
                             let right_pos = self.route[i + 1].get_pos();
                             dist_diff -= pos.distance(&right_pos) as isize;
-                            dist_diff += right_pos.distance(&self.route[i - 1].get_pos()) as isize;
+                            dist_diff += right_pos.distance(&left_pos) as isize;
                         }
 
                         // remove
@@ -299,7 +315,7 @@ impl State {
 
         // O(m) でいいとこに差し込む
 
-        for _ in 0..1000 {
+        for _ in 0..10000 {
             // idを指定して、そのrouteを消す
             let remove_id = self.choice.choose(&mut rng).unwrap().clone();
             self.unchoose(remove_id);
