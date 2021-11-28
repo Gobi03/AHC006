@@ -316,14 +316,13 @@ impl State {
         // 開始温度(スコア差の最大値にすると良さそう。開始直後に35%くらいの確率でこの差量を受け入れる)
         let start_temp: f64 = 100.0;
         // 終了温度(終盤に悪化遷移を35%程度許容できる値にすると良さそう)
-        let end_temp: f64 = 5.0;
+        let end_temp: f64 = 0.0;
 
         const TL: f64 = 1950.0; // 焼きなまし時間(秒)
         let mut temp;
 
         let mut best_score = self.moved_dist;
-        // TODO: out の持ち方は State である必要はない
-        let mut best_out = self.clone(); // res がベクターの場合を例とする
+        let mut best_out = (self.choice.clone(), self.route.clone()); // res がベクターの場合を例とする
 
         let mut loop_cnt = 0;
         let loop_time = 1000;
@@ -414,18 +413,20 @@ impl State {
                 if self.moved_dist < best_score {
                     // ベストスコアの更新
                     best_score = self.moved_dist;
-                    best_out = self.clone();
+                    best_out = (self.choice.clone(), self.route.clone());
                 }
             }
 
             loop_cnt += loop_time;
             // 中間アウトプット
-            self.print();
+            //self.print();
         }
 
-        eprintln!("best_score: {}", best_out.calc_score());
+        // eprintln!("best_score: {}", best_out.calc_score());
         eprintln!("loop_cnt: {}", loop_cnt);
-        best_out.print()
+        self.choice = best_out.0;
+        self.route = best_out.1;
+        self.print();
     }
 }
 
@@ -456,12 +457,6 @@ fn main() {
     // ** solve **
     let mut st = State::new(&input);
     st.solve(&input, &system_time);
-
-    // eprintln!("score: {}", st.calc_score());
-    // eprintln!("todo_len: {}", st.todo.len());
-
-    // ** outout **
-    // st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
