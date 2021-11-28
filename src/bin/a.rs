@@ -314,7 +314,7 @@ impl State {
         let start_time = system_time.elapsed().unwrap().as_millis();
 
         // 開始温度(スコア差の最大値にすると良さそう。開始直後に35%くらいの確率でこの差量を受け入れる)
-        let start_temp: f64 = 800.0;
+        let start_temp: f64 = 600.0;
         // 終了温度(終盤に悪化遷移を35%程度許容できる値にすると良さそう)
         let end_temp: f64 = 10.0;
 
@@ -325,6 +325,8 @@ impl State {
         // TODO: out の持ち方は State である必要はない
         let mut best_out = self.clone(); // res がベクターの場合を例とする
 
+        let mut loop_cnt = 0;
+        let loop_time = 1000;
         loop {
             let spent_time_rate =
                 (system_time.elapsed().unwrap().as_millis() - start_time) as f64 / TL;
@@ -336,7 +338,7 @@ impl State {
             // 温度。段々下がっていく。
             temp = start_temp + (end_temp - start_temp) * spent_time_rate;
 
-            for _ in 0..1000 {
+            for _ in 0..loop_time {
                 // TODO: 都度cloneするのは重くて良くない
                 let cur_st = self.clone();
 
@@ -417,11 +419,13 @@ impl State {
                 }
             }
 
+            loop_cnt += loop_time;
             // 中間アウトプット
             self.print();
         }
 
         eprintln!("best_score: {}", best_out.calc_score());
+        eprintln!("loop_cnt: {}", loop_cnt);
         best_out.print()
     }
 }
