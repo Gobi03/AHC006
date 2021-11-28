@@ -327,6 +327,7 @@ impl State {
 
         let mut loop_cnt = 0;
         let loop_time = 1000;
+        let mut gs_dp = vec![(0, 0); self.route.len() + 1];
         loop {
             let spent_time_rate =
                 (system_time.elapsed().unwrap().as_millis() - start_time) as f64 / TL;
@@ -364,7 +365,6 @@ impl State {
                 let new_request: Request = input.reqs[insert_id - 1];
                 // (左側に差し込まれる要素のindex, 加わる距離)
                 // 1注文以上がs-g間に挟まる前提
-                let mut gs_dp = vec![(0, 0); self.route.len() + 1];
                 gs_dp[self.route.len()] = (
                     self.route.len(),
                     self.calc_input_dist_diff(self.route.len(), &new_request.g),
