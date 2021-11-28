@@ -116,7 +116,7 @@ impl Input {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Point {
     // (id, pos)
     Start(usize, Coord),
@@ -132,15 +132,14 @@ impl Point {
 
     fn get_id(&self) -> usize {
         match self {
-            Point::Start(id, pos) => id.clone(),
-            Point::Goal(id, pos) => id.clone(),
+            Point::Start(id, _) => id.clone(),
+            Point::Goal(id, _) => id.clone(),
         }
     }
 }
 
-#[allow(dead_code)]
+#[derive(Clone)]
 struct State {
-    pos: Coord,
     choice: Vec<usize>, // 選んだ注文のid
     choiced: Vec<bool>, // 選ばれた注文が true
     route: Vec<Point>,  // 現在地も含む
@@ -150,7 +149,6 @@ impl State {
     // 始点に降り立った状態
     fn new(input: &Input) -> Self {
         let mut st = Self {
-            pos: Coord::new((400, 400)),
             choice: vec![],
             choiced: vec![false; ORDER_TOTAL],
             route: vec![],
@@ -309,72 +307,86 @@ impl State {
         dist_diff
     }
 
-    fn solve(&mut self, input: &Input) {
+    fn solve(&mut self, input: &Input, system_time: &SystemTime) {
         let mut rng = thread_rng();
 
         // O(m) でいいとこに差し込む
+        let start_time = system_time.elapsed().unwrap().as_millis();
 
-        for _ in 0..10000 {
-            // idを指定して、そのrouteを消す
-            let remove_id = self.choice.choose(&mut rng).unwrap().clone();
-            self.unchoose(remove_id);
-            let remove_dist = self.remove_from_route(remove_id);
+        while system_time.elapsed().unwrap().as_millis() - start_time < 1900 {
+            for _ in 0..1000 {
+                // TODO: 都度cloneするのは重くて良くない
+                let cur_st = self.clone();
 
-            self.moved_dist = (self.moved_dist as isize + remove_dist) as usize;
-            // eprintln!("moved_dist: {}", self.moved_dist);
-            // eprintln!("calc_route: {}", self.calc_route());
+                // idを指定して、そのrouteを消す
+                let remove_id = self.choice.choose(&mut rng).unwrap().clone();
+                self.unchoose(remove_id);
+                let remove_dist = self.remove_from_route(remove_id);
 
-            // ** 逆側からの累積和?でsの位置に対するgの最適位置をメモ **/
-            // 挿入するリクエストを乱択
-            let insert_id: usize;
-            loop {
-                let tmp_id = rng.gen_range(1, ORDER_TOTAL) + 1;
-                if !self.choiced[tmp_id - 1] {
-                    insert_id = tmp_id;
-                    break;
+                self.moved_dist = (self.moved_dist as isize + remove_dist) as usize;
+                // eprintln!("moved_dist: {}", self.moved_dist);
+                // eprintln!("calc_route: {}", self.calc_route());
+
+                // ** 逆側からの累積和?でsの位置に対するgの最適位置をメモ **/
+                // 挿入するリクエストを乱択
+                let insert_id: usize;
+                loop {
+                    let tmp_id = rng.gen_range(1, ORDER_TOTAL) + 1;
+                    if !self.choiced[tmp_id - 1] {
+                        insert_id = tmp_id;
+                        break;
+                    }
+                }
+                let new_request: Request = input.reqs[insert_id - 1];
+                // (左側に差し込まれる要素のindex, 加わる距離)
+                // 1注文以上がs-g間に挟まる前提
+                let mut gs_dp = vec![(0, 0); self.route.len() + 1];
+                gs_dp[self.route.len()] = (
+                    self.route.len(),
+                    self.calc_input_dist_diff(self.route.len(), &new_request.g),
+                );
+                for i in (0..self.route.len()).rev() {
+                    let (pre_index, pre_dist) = gs_dp[i + 1];
+                    let cur_dist = self.calc_input_dist_diff(i, &new_request.g);
+                    if cur_dist <= pre_dist {
+                        gs_dp[i] = (i, cur_dist);
+                    } else {
+                        gs_dp[i] = (pre_index, pre_dist);
+                    }
+                }
+
+                // s - g の距離の変動が最適な位置に差し込む
+                let mut best_dist = std::isize::MAX;
+                let mut best_s_index: usize = 1001;
+                let mut best_g_index: usize = 1001;
+                for s_index in 0..self.route.len() {
+                    let (g_index, g_dist) = gs_dp[s_index + 1];
+                    let s_dist = self.calc_input_dist_diff(s_index, &new_request.s);
+                    if s_dist + g_dist < best_dist {
+                        best_dist = s_dist + g_dist;
+                        best_s_index = s_index;
+                        best_g_index = g_index;
+                    }
+                }
+
+                self.choose(&new_request);
+                self.route
+                    .insert(best_g_index, Point::Goal(new_request.id, new_request.g));
+                self.route
+                    .insert(best_s_index, Point::Start(new_request.id, new_request.s));
+                self.moved_dist = (self.moved_dist as isize + best_dist) as usize;
+
+                // 良くなってなかったら戻す
+                if cur_st.moved_dist < self.moved_dist {
+                    self.choice = cur_st.choice;
+                    self.choiced = cur_st.choiced;
+                    self.route = cur_st.route;
+                    self.moved_dist = cur_st.moved_dist;
                 }
             }
-            let new_request: Request = input.reqs[insert_id - 1];
-            // (左側に差し込まれる要素のindex, 加わる距離)
-            // 1注文以上がs-g間に挟まる前提
-            let mut gs_dp = vec![(0, 0); self.route.len() + 1];
-            gs_dp[self.route.len()] = (
-                self.route.len(),
-                self.calc_input_dist_diff(self.route.len(), &new_request.g),
-            );
-            for i in (0..self.route.len()).rev() {
-                let (pre_index, pre_dist) = gs_dp[i + 1];
-                let cur_dist = self.calc_input_dist_diff(i, &new_request.g);
-                if cur_dist <= pre_dist {
-                    gs_dp[i] = (i, cur_dist);
-                } else {
-                    gs_dp[i] = (pre_index, pre_dist);
-                }
-            }
-
-            // s - g の距離の変動が最適な位置に差し込む
-            let mut best_dist = std::isize::MAX;
-            let mut best_s_index: usize = 1001;
-            let mut best_g_index: usize = 1001;
-            for s_index in 0..self.route.len() {
-                let (g_index, g_dist) = gs_dp[s_index + 1];
-                let s_dist = self.calc_input_dist_diff(s_index, &new_request.s);
-                if s_dist + g_dist < best_dist {
-                    best_dist = s_dist + g_dist;
-                    best_s_index = s_index;
-                    best_g_index = g_index;
-                }
-            }
-            // TODO: 更新するかの条件分岐
-            self.choose(&new_request);
-            self.route
-                .insert(best_g_index, Point::Goal(new_request.id, new_request.g));
-            self.route
-                .insert(best_s_index, Point::Start(new_request.id, new_request.s));
-            self.moved_dist = (self.moved_dist as isize + best_dist) as usize;
 
             // 中間アウトプット
-            // self.print();
+            self.print();
         }
     }
 }
@@ -405,7 +417,7 @@ fn main() {
 
     // ** solve **
     let mut st = State::new(&input);
-    st.solve(&input);
+    st.solve(&input, &system_time);
 
     eprintln!("score: {}", st.calc_score());
     // eprintln!("todo_len: {}", st.todo.len());
