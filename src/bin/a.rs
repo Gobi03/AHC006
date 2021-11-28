@@ -313,7 +313,29 @@ impl State {
         // O(m) でいいとこに差し込む
         let start_time = system_time.elapsed().unwrap().as_millis();
 
-        while system_time.elapsed().unwrap().as_millis() - start_time < 1900 {
+        // 開始温度(スコア差の最大値にすると良さそう。開始直後に35%くらいの確率でこの差量を受け入れる)
+        let start_temp: f64 = 800.0;
+        // 終了温度(終盤に悪化遷移を35%程度許容できる値にすると良さそう)
+        let end_temp: f64 = 10.0;
+
+        const TL: f64 = 1950.0; // 焼きなまし時間(秒)
+        let mut temp;
+
+        let mut best_score = self.moved_dist;
+        // TODO: out の持ち方は State である必要はない
+        let mut best_out = self.clone(); // res がベクターの場合を例とする
+
+        loop {
+            let spent_time_rate =
+                (system_time.elapsed().unwrap().as_millis() - start_time) as f64 / TL;
+
+            if spent_time_rate >= 1.0 {
+                break;
+            }
+
+            // 温度。段々下がっていく。
+            temp = start_temp + (end_temp - start_temp) * spent_time_rate;
+
             for _ in 0..1000 {
                 // TODO: 都度cloneするのは重くて良くない
                 let cur_st = self.clone();
@@ -377,17 +399,30 @@ impl State {
                 self.moved_dist = (self.moved_dist as isize + best_dist) as usize;
 
                 // 良くなってなかったら戻す
-                if cur_st.moved_dist < self.moved_dist {
+                if cur_st.moved_dist < self.moved_dist
+                    && !rng.gen_bool(f64::exp(
+                        (cur_st.moved_dist as f64 - self.moved_dist as f64) / temp,
+                    ))
+                {
                     self.choice = cur_st.choice;
                     self.choiced = cur_st.choiced;
                     self.route = cur_st.route;
                     self.moved_dist = cur_st.moved_dist;
+                }
+
+                if self.moved_dist < best_score {
+                    // ベストスコアの更新
+                    best_score = self.moved_dist;
+                    best_out = self.clone();
                 }
             }
 
             // 中間アウトプット
             self.print();
         }
+
+        eprintln!("best_score: {}", best_out.calc_score());
+        best_out.print()
     }
 }
 
@@ -419,11 +454,11 @@ fn main() {
     let mut st = State::new(&input);
     st.solve(&input, &system_time);
 
-    eprintln!("score: {}", st.calc_score());
+    // eprintln!("score: {}", st.calc_score());
     // eprintln!("todo_len: {}", st.todo.len());
 
     // ** outout **
-    st.print();
+    // st.print();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
