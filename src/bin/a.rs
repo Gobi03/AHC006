@@ -314,11 +314,11 @@ impl State {
         let start_time = system_time.elapsed().unwrap().as_millis();
 
         // 開始温度(スコア差の最大値にすると良さそう。開始直後に35%くらいの確率でこの差量を受け入れる)
-        let start_temp: f64 = 600.0;
+        let start_temp: f64 = 100.0;
         // 終了温度(終盤に悪化遷移を35%程度許容できる値にすると良さそう)
-        let end_temp: f64 = 10.0;
+        let end_temp: f64 = 5.0;
 
-        const TL: f64 = 1950.0; // 焼きなまし時間(秒)
+        const TL: f64 = 19500.0; // 焼きなまし時間(秒)
         let mut temp;
 
         let mut best_score = self.moved_dist;
