@@ -318,7 +318,7 @@ impl State {
         // 終了温度(終盤に悪化遷移を35%程度許容できる値にすると良さそう)
         let end_temp: f64 = 5.0;
 
-        const TL: f64 = 19500.0; // 焼きなまし時間(秒)
+        const TL: f64 = 1950.0; // 焼きなまし時間(秒)
         let mut temp;
 
         let mut best_score = self.moved_dist;
@@ -339,8 +339,8 @@ impl State {
             temp = start_temp + (end_temp - start_temp) * spent_time_rate;
 
             for _ in 0..loop_time {
-                // TODO: 都度cloneするのは重くて良くない
-                let cur_st = self.clone();
+                let cur_dist = self.moved_dist;
+                let cur_route = self.route.clone();
 
                 // idを指定して、そのrouteを消す
                 let remove_id = self.choice.choose(&mut rng).unwrap().clone();
@@ -401,15 +401,14 @@ impl State {
                 self.moved_dist = (self.moved_dist as isize + best_dist) as usize;
 
                 // 良くなってなかったら戻す
-                if cur_st.moved_dist < self.moved_dist
-                    && !rng.gen_bool(f64::exp(
-                        (cur_st.moved_dist as f64 - self.moved_dist as f64) / temp,
-                    ))
+                if cur_dist < self.moved_dist
+                    && !rng.gen_bool(f64::exp((cur_dist as f64 - self.moved_dist as f64) / temp))
                 {
-                    self.choice = cur_st.choice;
-                    self.choiced = cur_st.choiced;
-                    self.route = cur_st.route;
-                    self.moved_dist = cur_st.moved_dist;
+                    self.unchoose(new_request.id);
+                    self.choose(&input.reqs[remove_id - 1]);
+
+                    self.route = cur_route;
+                    self.moved_dist = cur_dist;
                 }
 
                 if self.moved_dist < best_score {
